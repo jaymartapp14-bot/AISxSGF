@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AIS x SG FINANCE+</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* ปรับพื้นหลังพาสเทลให้อ่อนลง สบายตา ไม่เยอะเกินไป */
+            --bg-pastel: #fafbfe;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --text-dark: #1d1d1f;
+            --text-gray: #86868b;
+            --accent-color: #007aff;
+            --danger-color: #ff3b30;
+            --shadow-glass: 0 12px 40px rgba(0, 0, 0, 0.04);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body {
+            overflow-x: hidden !important;
+            width: 100%;
+            max-width: 100vw;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: var(--bg-pastel);
+            /* แสงเงาพาสเทลแบบจางๆ ไม่รบกวนสายตา */
+            background-image: radial-gradient(at 0% 0%, rgba(200,220,255,0.15) 0px, transparent 50%),
+                              radial-gradient(at 100% 100%, rgba(255,210,230,0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; 
+            min-height: 100vh;
+            color: var(--text-dark);
+            padding: 16px 12px;
+        }
+
+        .container-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: saturate(180%) blur(25px);
+            -webkit-backdrop-filter: saturate(180%) blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 30px;
+            width: 100%;
+            max-width: 620px;
+            box-shadow: var(--shadow-glass);
+        }
+
+        /* ปรับแต่งสีหัวข้อตามสั่ง */
+        h2 { text-align: center; font-weight: 600; margin-top: 0; margin-bottom: 24px; font-size: 1.35rem; letter-spacing: -0.3px; }
+        .ais-text { color: #00b14f; } /* สีเขียว AIS */
+        .sg-text { color: #ed1c24; } /* สีแดง SG */
+        .finance-text { color: #005bc5; } /* สีน้ำเงิน FINANCE+ */
+
+        .form-row { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; width: 100%; }
+        .form-col { flex: 1; display: flex; flex-direction: column; min-width: 140px; position: relative; }
+
+        label { font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; color: var(--text-gray); }
+
+        input, select, textarea {
+            width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(0,0,0,0.06);
+            background: rgba(255,255,255,0.6); font-family: 'Prompt', sans-serif; font-size: 0.92rem;
+            color: var(--text-dark); outline: none; transition: all 0.2s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            background: #fff; border-color: var(--accent-color); box-shadow: 0 0 0 4px rgba(0,122,255,0.1);
+        }
+
+        input[readonly], textarea[readonly] { background: rgba(245,245,247,0.5); cursor: not-allowed; color: #86868b; }
+        .note { font-size: 0.74rem; color: var(--danger-color); margin-top: 4px; font-weight: 500; }
+
+        .custom-dropdown { position: relative; width: 100%; }
+        .dropdown-menu {
+            position: absolute; top: 100%; left: 0; right: 0; background: rgba(255,255,255,0.98);
+            border: 1px solid rgba(0,0,0,0.06); border-radius: 14px; max-height: 200px; overflow-y: auto;
+            z-index: 1000; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-top: 6px;
+        }
+        .dropdown-item { padding: 12px 14px; cursor: pointer; font-size: 0.9rem; transition: background 0.15s; }
+        .dropdown-item:hover { background: rgba(0,122,255,0.06); color: var(--accent-color); }
+
+        .pill-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+        .pill-container::-webkit-scrollbar { display: none; }
+        .pill-btn {
+            flex-shrink: 0; padding: 10px 18px; border-radius: 99px; border: 1px solid rgba(0,0,0,0.04);
+            background: rgba(255,255,255,0.5); cursor: pointer; font-family: 'Prompt', sans-serif;
+            font-size: 0.85rem; font-weight: 500; transition: all 0.2s; color: var(--text-dark);
+        }
+        .pill-btn.active {
+            background: var(--accent-color); color: #fff; border-color: transparent;
+            box-shadow: 0 4px 12px rgba(0,122,255,0.3);
+        }
+
+        .summary-box {
+            margin-top: 24px; padding: 20px; border-radius: 20px; background: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.9); text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+        }
+        .summary-total { font-size: 2.2rem; font-weight: 600; color: var(--danger-color); margin: 8px 0; letter-spacing: -0.5px; }
+        
+        .alert-gadget {
+            font-size: 0.84rem; color: var(--danger-color); background: rgba(255,59,48,0.06);
+            padding: 12px 14px; border-radius: 14px; display: none; margin-top: 10px; text-align: left; line-height: 1.4;
+        }
+
+        .reset-btn {
+            background: rgba(0,0,0,0.03); color: var(--text-dark); border: none; padding: 14px; border-radius: 16px; 
+            width: 100%; font-family: 'Prompt', sans-serif; font-size: 0.92rem; font-weight: 500;
+            cursor: pointer; margin-top: 20px; transition: all 0.2s;
+        }
+        .reset-btn:hover { background: rgba(0,0,0,0.06); }
+
+        .text-red-bold { color: var(--danger-color); font-weight: 500; }
+
+        .loading-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-pastel);
+            display: flex; justify-content: center; align-items: center; z-index: 999; font-size: 0.95rem; color: var(--text-gray);
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 8px; }
+            .glass-card { padding: 22px 16px; border-radius: 24px; }
+            .form-row { flex-direction: column; gap: 12px; margin-bottom: 12px; }
+            .form-col { width: 100% !important; min-width: 100% !important; }
+            input, select, textarea { padding: 12px; font-size: 0.9rem; }
+            .summary-total { font-size: 1.9rem; }
+            h2 { font-size: 1.2rem; margin-bottom: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading" class="loading-overlay">
+        <div id="loadingText">🔮 AIS x SG FINANCE+ กำลังซิงค์ข้อมูล...</div>
+    </div>
+
+    <div class="container-wrapper">
+        <div class="glass-card">
+            <h2><span class="ais-text">AIS</span> x <span class="sg-text">SG</span> <span class="finance-text">FINANCE+</span></h2>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label>แบรนด์สมาร์ทโฟน (Brand)</label>
+                    <select id="brand" onchange="filterModels()"><option value="">เลือกแบรนด์ที่ต้องการ...</option></select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label>รุ่นสมาร์ทโฟน (Model)</label>
+                    <div class="custom-dropdown">
+                        <input type="text" id="modelSearch" placeholder="คลิกเลือกหรือพิมพ์ค้นหารุ่น..." autocomplete="off">
+                        <div class="dropdown-menu" id="modelMenu"></div>
+                    </div>
+                </div>
+                <div class="form-col">
+                    <label>ขนาดความจุ (Storage)</label>
+                    <select id="storage" onchange="updatePrice()"><option value="">เลือกความจุ...</option></select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label>Gadget <span class="text-red-bold">ถ้ามี (ใส่กรณีผ่อนร่วมเท่านั้น)</span></label>
+                    <div class="custom-dropdown">
+                        <input type="text" id="gadgetInput" placeholder="คลิกเลือกหรือพิมพ์ค้นหาอุปกรณ์..." autocomplete="off">
+                        <div class="dropdown-menu" id="gadgetMenu"></div>
+                    </div>
+                </div>
+                <div class="form-col">
+                    <label>ราคาเครื่องรวม</label>
+                    <input type="text" id="price" value="0" readonly>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label>เปอร์เซ็นต์เงินดาวน์</label>
+                    <div class="pill-container" id="downPercentContainer">
+                        <button class="pill-btn active" data-val="0">0%</button>
+                        <button class="pill-btn" data-val="0.10">10%</button>
+                        <button class="pill-btn" data-val="0.20">20%</button>
+                        <button class="pill-btn" data-val="0.30">30%</button>
+                        <button class="pill-btn" data-val="0.40">40%</button>
+                        <button class="pill-btn" data-val="0.50">50%</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col" style="flex: 1.2;">
+                    <label>จำนวนเงินดาวน์</label>
+                    <input type="text" id="downAmount" value="0" readonly>
+                </div>
+                <div class="form-col">
+                    <label>ส่วนลดค่าเครื่อง (เปิดเบอร์ใหม่/ย้ายค่าย)</label>
+                    <select id="discount" onchange="filterPackages()">
+                        <option value="0">กำลังโหลดรายการ...</option>
+                    </select>
+                </div>
+                <div class="form-col">
+                    <label>ช่วยดาวน์ (DP)</label>
+                    <input type="text" id="dpAmount" placeholder="ระบุจำนวนเงิน..." oninput="formatDP(this)">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label>เลือกแพ็กเกจที่ต้องการ</label>
+                    <select id="package" onchange="updatePackageDetails()">
+                        <option value="">กรุณาระบุส่วนลดค่าเครื่องก่อน...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label>ส่วนลดของแพ็กเกจ</label>
+                    <input type="text" id="pkgDiscount" readonly placeholder="-">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label>อินเทอร์เน็ต 5G เต็มสปีด</label>
+                    <input type="text" id="net5g" readonly placeholder="-">
+                </div>
+                <div class="form-col">
+                    <label>อินเทอร์เน็ตต่อเนื่อง</label>
+                    <input type="text" id="netCont" readonly placeholder="-">
+                </div>
+                <div class="form-col">
+                    <label>โทรฟรีทุกเครือข่าย (นาที)</label>
+                    <input type="text" id="call" readonly placeholder="-">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label>รายละเอียดและข้อกำหนดโปรโมชั่น</label>
+                    <textarea id="pkgCondition" rows="3" readonly placeholder="-"></textarea>
+                </div>
+            </div>
+
+            <div class="summary-box">
+                <div class="summary-title text-red-bold">ยอดที่ต้องชำระสุทธิ (บาท) **รวมค่าธรรมเนียม**</div>
+                <div class="summary-total" id="totalPayment">0.00</div>
+                <div class="alert-gadget" id="gadgetAlert">
+                    ⚠️ มียอดคงเหลือ <span id="excessAmount">0</span> บาท <br>
+                    <b>รับสิทธิ์ส่วนลดทันที! เพียงเลือกสินค้า Gadget เพิ่มเติมที่สาขา ให้ครบตามเงื่อนไขที่กำหนด</b>
+                </div>
+            </div>
+
+            <button class="reset-btn" onclick="resetAll()">🔄 เริ่มทำรายการใหม่ทั้งหมด</button>
+        </div>
+    </div>
+
+    <script>
+        let globalStockData = [];
+        let globalPackageData = [];
+        let globalVatMap = {}; 
+        
+        let currentDownPercent = 0;
+        let currentMachinePrice = 0; 
+        let currentGadgetPrice = 0;  
+        let currentVat = 0;
+        let loadCount = 0;
+
+        let availableModels = [];
+        let availableGadgets = []; 
+
+        const modelSearch = document.getElementById('modelSearch');
+        const modelMenu = document.getElementById('modelMenu');
+        const gadgetInput = document.getElementById('gadgetInput');
+        const gadgetMenu = document.getElementById('gadgetMenu');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            google.script.run
+                .withFailureHandler(showError)
+                .withSuccessHandler(data => {
+                    if(data.error) { showError(data.error); return; }
+                    globalStockData = data;
+                    initBrands();
+                    checkLoad();
+                }).getStockData();
+
+            google.script.run
+                .withFailureHandler(showError)
+                .withSuccessHandler(data => {
+                    if(data.error) { showError(data.error); return; }
+                    globalPackageData = data.packages;
+                    globalVatMap = data.vatMap; 
+                    initDiscounts(); 
+                    checkLoad();
+                }).getPackageData();
+
+            modelSearch.addEventListener('focus', () => { modelMenu.style.display = 'block'; renderModelMenu(modelSearch.value); });
+            modelSearch.addEventListener('input', (e) => renderModelMenu(e.target.value));
+
+            gadgetInput.addEventListener('focus', () => { gadgetMenu.style.display = 'block'; renderGadgetMenu(gadgetInput.value); });
+            gadgetInput.addEventListener('input', (e) => renderGadgetMenu(e.target.value));
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#modelSearch') && !e.target.closest('#modelMenu')) modelMenu.style.display = 'none';
+                if (!e.target.closest('#gadgetInput') && !e.target.closest('#gadgetMenu')) gadgetMenu.style.display = 'none';
+            });
+        });
+
+        function showError(msg) {
+            document.getElementById('loadingText').innerHTML = `❌ ระบบขัดข้อง: <br><br> ${msg}`;
+            document.getElementById('loadingText').style.color = "var(--danger-color)";
+        }
+
+        function checkLoad() {
+            loadCount++;
+            if(loadCount === 2) document.getElementById('loading').style.display = 'none';
+        }
+
+        function fuzzyMatch(pattern, text) {
+            if (!pattern) return true;
+            const searchLower = pattern.toLowerCase().replace(/\s+/g, '');
+            const textLower = text.toLowerCase().replace(/\s+/g, '');
+            let searchIndex = 0;
+            for (let i = 0; i < textLower.length; i++) {
+                if (textLower[i] === searchLower[searchIndex]) searchIndex++;
+                if (searchIndex === searchLower.length) return true;
+            }
+            return false;
+        }
+
+        // อัปเดต: คัดแบรนด์ Samsung, iPhone, และ Apple ออกทั้งหมดตามสั่ง
+        function initBrands() {
+            const brandSelect = document.getElementById('brand');
+            const brands = [...new Set(globalStockData.map(item => item.brand))]
+                .filter(b => {
+                    const n = b.trim().toLowerCase();
+                    return n !== 'samsung' && n !== 'iphone' && n !== 'apple';
+                });
+                
+            brands.forEach(b => {
+                let opt = document.createElement('option');
+                opt.value = b; opt.textContent = b;
+                brandSelect.appendChild(opt);
+            });
+        }
+
+        function initDiscounts() {
+            const discountSelect = document.getElementById('discount');
+            discountSelect.innerHTML = '<option value="0">เลือกสิทธิ์ส่วนลด...</option>';
+            
+            let discounts = Object.keys(globalVatMap).map(Number).sort((a, b) => a - b);
+            
+            discounts.forEach(d => {
+                let opt = document.createElement('option');
+                opt.value = d; opt.textContent = d.toLocaleString() + " บาท";
+                discountSelect.appendChild(opt);
+            });
+        }
+
+        function filterModels() {
+            const brand = document.getElementById('brand').value;
+            modelSearch.value = '';
+            document.getElementById('storage').innerHTML = '<option value="">เลือกความจุ...</option>';
+            gadgetInput.value = '';
+            document.getElementById('price').value = '0';
+            currentMachinePrice = 0;
+            currentGadgetPrice = 0;
+            
+            availableModels = [...new Set(globalStockData.filter(item => item.brand === brand).map(item => item.model))];
+            
+            const gadgets = globalStockData.filter(item => {
+                const type = item.typeColH || '';
+                return (type.includes('TWS') || type.includes('WATCH')) && item.brand.toLowerCase() === brand.toLowerCase();
+            });
+            
+            availableGadgets = gadgets.map(g => ({ name: `${g.brand} ${g.model}`, price: g.retailPrice }));
+            let seen = new Set();
+            availableGadgets = availableGadgets.filter(g => !seen.has(g.name) && seen.add(g.name));
+
+            renderModelMenu('');
+            renderGadgetMenu('');
+            calculateAll();
+        }
+
+        function renderModelMenu(filterText) {
+            modelMenu.innerHTML = '';
+            const filtered = availableModels.filter(m => fuzzyMatch(filterText, m));
+            if(filtered.length === 0) {
+                modelMenu.innerHTML = '<div style="padding:12px; color:var(--text-gray); text-align:center;">ไม่พบข้อมูลรุ่น</div>';
+                return;
+            }
+            filtered.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'dropdown-item';
+                div.textContent = m;
+                div.addEventListener('click', () => {
+                    modelSearch.value = m;
+                    modelMenu.style.display = 'none';
+                    filterStorages();
+                });
+                modelMenu.appendChild(div);
+            });
+        }
+
+        function renderGadgetMenu(filterText) {
+            gadgetMenu.innerHTML = '';
+            const filtered = availableGadgets.filter(g => fuzzyMatch(filterText, g.name));
+            if(filtered.length === 0) {
+                gadgetMenu.innerHTML = '<div style="padding:12px; color:var(--text-gray); text-align:center;">ไม่มีอุปกรณ์ที่รองรับ</div>';
+                return;
+            }
+            filtered.forEach(g => {
+                const div = document.createElement('div');
+                div.className = 'dropdown-item';
+                div.textContent = `${g.name} (${g.price.toLocaleString()} บ.)`;
+                div.addEventListener('click', () => {
+                    gadgetInput.value = g.name;
+                    currentGadgetPrice = g.price;
+                    gadgetMenu.style.display = 'none';
+                    calculateAll();
+                });
+                gadgetMenu.appendChild(div);
+            });
+        }
+
+        function filterStorages() {
+            const model = modelSearch.value;
+            const storageSelect = document.getElementById('storage');
+            storageSelect.innerHTML = '<option value="">เลือกความจุ...</option>';
+            document.getElementById('price').value = '0';
+            currentMachinePrice = 0;
+            
+            const storages = globalStockData.filter(item => item.model === model).map(item => item.storage);
+            const uniqueStorages = [...new Set(storages)];
+            
+            uniqueStorages.forEach(s => {
+                if(s) {
+                    let opt = document.createElement('option');
+                    opt.value = s; opt.textContent = s;
+                    storageSelect.appendChild(opt);
+                }
+            });
+            calculateAll();
+        }
+
+        function updatePrice() {
+            const model = modelSearch.value;
+            const storage = document.getElementById('storage').value;
+            const match = globalStockData.find(item => item.model === model && item.storage === storage);
+            currentMachinePrice = match ? match.retailPrice : 0;
+            calculateAll();
+        }
+
+        function formatDP(el) {
+            let val = el.value.replace(/[^\d]/g, '');
+            if (val) { el.value = parseInt(val, 10).toLocaleString(); } 
+            else { el.value = ''; }
+            calculateAll();
+        }
+
+        const pillBtns = document.querySelectorAll('.pill-btn');
+        pillBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                pillBtns.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentDownPercent = parseFloat(e.target.getAttribute('data-val'));
+                calculateAll();
+            });
+        });
+
+        // ฟังก์ชันนี้ไม่ได้ดัดแปลงการทำงานใดๆ (รักษา Logic เดิมที่ตรวจเช็คจาก E และ F ตามที่คุณสั่งไว้)
+        function filterPackages() {
+            const discount = parseFloat(document.getElementById('discount').value) || 0;
+            const pkgSelect = document.getElementById('package');
+            pkgSelect.innerHTML = '<option value="">เลือกแพ็กเกจที่ต้องการ...</option>';
+
+            currentVat = globalVatMap[discount] || 0;
+
+            if(discount === 0) { updatePackageDetails(); calculateAll(); return; }
+
+            let filtered = globalPackageData.filter(p => {
+                let price = p.price;     
+                let isPortIn = p.isPortIn; 
+
+                if (discount === 1500) {
+                    return (price === 499 || price === 599) && !isPortIn;
+                }
+                if (discount === 2000) {
+                    return (price >= 699 && !isPortIn) || (price === 1099 && isPortIn);
+                }
+                if (discount === 2500) {
+                    return (price >= 899 && !isPortIn) || (price === 1299 && isPortIn);
+                }
+                if (discount === 3500) {
+                    return price >= 1199 && !isPortIn;
+                }
+                return false;
+            });
+
+            filtered.sort((a, b) => a.price - b.price);
+
+            filtered.forEach(p => {
+                let opt = document.createElement('option'); 
+                opt.value = p.packageName; 
+                opt.textContent = p.packageName; 
+                pkgSelect.appendChild(opt);
+            });
+
+            updatePackageDetails();
+        }
+
+        function updatePackageDetails() {
+            const pkgName = document.getElementById('package').value;
+            const match = globalPackageData.find(p => p.packageName === pkgName);
+            
+            if(match) {
+                document.getElementById('pkgDiscount').value = match.pkgDiscount;
+                document.getElementById('net5g').value = match.net5g;
+                document.getElementById('netCont').value = match.netCont;
+                document.getElementById('call').value = match.callMinutes;
+                document.getElementById('pkgCondition').value = match.condition;
+            } else {
+                ['pkgDiscount', 'net5g', 'netCont', 'call', 'pkgCondition'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+            }
+            calculateAll();
+        }
+
+        function calculateAll() {
+            let gadgetVal = gadgetInput.value.trim();
+            const matchGadget = availableGadgets.find(g => g.name === gadgetVal);
+            
+            if (matchGadget) {
+                currentGadgetPrice = matchGadget.price;
+            } else {
+                let cleanVal = gadgetVal.replace(/,/g, '');
+                let numMatch = cleanVal.match(/\d+/g);
+                currentGadgetPrice = numMatch ? parseFloat(numMatch[numMatch.length - 1]) || 0 : 0;
+            }
+
+            const totalDevicePrice = currentMachinePrice + currentGadgetPrice;
+            document.getElementById('price').value = totalDevicePrice > 0 ? totalDevicePrice.toLocaleString() : '0';
+
+            const downAmount = Math.ceil(totalDevicePrice * currentDownPercent);
+            document.getElementById('downAmount').value = downAmount.toLocaleString();
+
+            const deviceDiscount = parseFloat(document.getElementById('discount').value) || 0;
+            const dpAmount = parseFloat(document.getElementById('dpAmount').value.replace(/,/g, '')) || 0;
+
+            if (deviceDiscount === 0) {
+                document.getElementById('totalPayment').innerText = "0.00";
+                document.getElementById('gadgetAlert').style.display = 'none';
+                return;
+            }
+
+            const fee = 300;
+            let fixedComponent = currentVat + fee; 
+            
+            let netDown = (downAmount - dpAmount) - deviceDiscount;
+            
+            let finalTotal = 0;
+            let excess = 0;
+
+            if (netDown < 0) {
+                finalTotal = fixedComponent; 
+                excess = Math.abs(netDown); 
+            } else {
+                finalTotal = netDown + fixedComponent; 
+                excess = 0;
+            }
+
+            document.getElementById('totalPayment').innerText = finalTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+            const gadgetAlertEl = document.getElementById('gadgetAlert');
+            const excessAmountEl = document.getElementById('excessAmount');
+            if (netDown < 0) {
+                excessAmountEl.innerText = excess.toLocaleString(undefined, {maximumFractionDigits: 2});
+                gadgetAlertEl.style.display = 'block';
+            } else {
+                gadgetAlertEl.style.display = 'none';
+            }
+        }
+
+        function resetAll() {
+            document.getElementById('brand').selectedIndex = 0;
+            modelSearch.value = '';
+            modelMenu.innerHTML = '';
+            document.getElementById('storage').innerHTML = '<option value="">เลือกความจุ...</option>';
+            gadgetInput.value = '';
+            gadgetMenu.innerHTML = '';
+            document.getElementById('price').value = '0';
+            document.getElementById('dpAmount').value = ''; 
+            
+            pillBtns.forEach(b => b.classList.remove('active'));
+            pillBtns[0].classList.add('active');
+            currentDownPercent = 0;
+            
+            document.getElementById('downAmount').value = '0';
+            document.getElementById('discount').innerHTML = '<option value="0">เลือกสิทธิ์ส่วนลด...</option>';
+            initDiscounts(); 
+            
+            document.getElementById('package').innerHTML = '<option value="">กรุณาระบุส่วนลดค่าเครื่องก่อน...</option>';
+            ['pkgDiscount', 'net5g', 'netCont', 'call', 'pkgCondition'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            
+            document.getElementById('totalPayment').innerText = '0.00';
+            document.getElementById('gadgetAlert').style.display = 'none';
+            
+            currentMachinePrice = 0;
+            currentGadgetPrice = 0;
+            currentVat = 0;
+            availableModels = [];
+            availableGadgets = [];
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' }); 
+        }
+    </script>
+</body>
+</html>
