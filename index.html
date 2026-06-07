@@ -657,5 +657,397 @@
             window.scrollTo({ top: 0, behavior: 'smooth' }); 
         }
     </script>
+    <script>
+        // ==========================================
+        // วาง URL ที่ถูกต้องตรงนี้ครับ
+        const API_URL = "https://script.google.com/macros/s/AKfycbyD4nYzsmGTxxD3Hly0nNX0WP7nUIohfIx3VqLSvj6yuC92qHGHj0OYyj5bRddt_tB8rQ/exec";
+        // ==========================================
+
+        let globalStockData = [];
+        let globalPackageData = [];
+        let globalVatMap = {}; 
+        
+        let currentDownPercent = 0;
+        let currentMachinePrice = 0; 
+        let currentGadgetPrice = 0;  
+        let currentVat = 0;
+
+        let availableModels = [];
+        let availableGadgets = []; 
+
+        const modelSearch = document.getElementById('modelSearch');
+        const modelMenu = document.getElementById('modelMenu');
+        const gadgetInput = document.getElementById('gadgetInput');
+        const gadgetMenu = document.getElementById('gadgetMenu');
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            // แก้ไขเงื่อนไข if กลับให้ถูกต้อง
+            if (API_URL === "ใส่_URL_ของเว็บแอป_APPS_SCRIPT_ที่นี่" || API_URL === "") {
+                showError("กรุณาใส่ลิงก์ API ของ Google Apps Script ในโค้ดก่อนใช้งาน");
+                return;
+            }
+
+            try {
+                // ดึงข้อมูลทั้งหมดผ่าน API ในครั้งเดียว (Fetch Data)
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('ไม่สามารถเชื่อมต่อฐานข้อมูลได้');
+                
+                const data = await response.json();
+                
+                if(data.error) { 
+                    showError(data.error); 
+                    return; 
+                }
+
+                globalStockData = data.stock || [];
+                globalPackageData = data.packages || [];
+                globalVatMap = data.vatMap || {}; 
+
+                initBrands();
+                initDiscounts();
+                document.getElementById('loading').style.display = 'none';
+
+            } catch (error) {
+                showError("เกิดข้อผิดพลาดในการโหลดข้อมูล: " + error.message);
+                console.error(error);
+            }
+
+            // ตั้งค่า Event Listeners สำหรับ UI
+            modelSearch.addEventListener('focus', () => { modelMenu.style.display = 'block'; renderModelMenu(modelSearch.value); });
+            modelSearch.addEventListener('input', (e) => renderModelMenu(e.target.value));
+            
+            modelSearch.addEventListener('blur', () => {
+                setTimeout(() => {
+                    const match = availableModels.find(m => m === modelSearch.value.trim());
+                    if(!match && modelSearch.value.trim() !== '') {
+                        modelSearch.value = '';
+                        filterStorages(); 
+                    }
+                }, 200);
+            });
+
+            gadgetInput.addEventListener('focus', () => { gadgetMenu.style.display = 'block'; renderGadgetMenu(gadgetInput.value); });
+            gadgetInput.addEventListener('input', (e) => renderGadgetMenu(e.target.value));
+
+            gadgetInput.addEventListener('blur', () => {
+                setTimeout(() => {
+                    const match = availableGadgets.find(g => g.name === gadgetInput.value.trim());
+                    if(!match && gadgetInput.value.trim() !== '') {
+                        gadgetInput.value = '';
+                        calculateAll();
+                    }
+                }, 200);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#modelSearch') && !e.target.closest('#modelMenu')) modelMenu.style.display = 'none';
+                if (!e.target.closest('#gadgetInput') && !e.target.closest('#gadgetMenu')) gadgetMenu.style.display = 'none';
+            });
+        });
+
+        function showError(msg) {
+            document.getElementById('loadingText').innerHTML = `❌ ระบบขัดข้อง: <br><br> ${msg}`;
+            document.getElementById('loadingText').style.color = "var(--danger-color)";
+        }
+
+        function fuzzyMatch(pattern, text) {
+            if (!pattern) return true;
+            const searchLower = pattern.toLowerCase().replace(/\s+/g, '');
+            const textLower = text.toLowerCase().replace(/\s+/g, '');
+            let searchIndex = 0;
+            for (let i = 0; i < textLower.length; i++) {
+                if (textLower[i] === searchLower[searchIndex]) searchIndex++;
+                if (searchIndex === searchLower.length) return true;
+            }
+            return false;
+        }
+
+        function initBrands() {
+            const brandSelect = document.getElementById('brand');
+            brandSelect.innerHTML = '<option value="">เลือกแบรนด์ที่ต้องการ...</option>';
+            const brands = [...new Set(globalStockData.map(item => item.brand))]
+                .filter(b => {
+                    if(!b) return false;
+                    const n = b.trim().toLowerCase();
+                    return n !== 'samsung' && n !== 'iphone' && n !== 'apple';
+                });
+                
+            brands.forEach(b => {
+                let opt = document.createElement('option');
+                opt.value = b; opt.textContent = b;
+                brandSelect.appendChild(opt);
+            });
+        }
+
+        function initDiscounts() {
+            const discountSelect = document.getElementById('discount');
+            discountSelect.innerHTML = '<option value="0">เลือกสิทธิ์ส่วนลด...</option>';
+            
+            let discounts = Object.keys(globalVatMap).map(Number).sort((a, b) => a - b);
+            
+            discounts.forEach(d => {
+                let opt = document.createElement('option');
+                opt.value = d; opt.textContent = d.toLocaleString() + " บาท";
+                discountSelect.appendChild(opt);
+            });
+        }
+
+        function filterModels() {
+            const brand = document.getElementById('brand').value;
+            modelSearch.value = '';
+            document.getElementById('storage').innerHTML = '<option value="">เลือกความจุ...</option>';
+            gadgetInput.value = '';
+            document.getElementById('price').value = '0';
+            currentMachinePrice = 0;
+            currentGadgetPrice = 0;
+            
+            availableModels = [...new Set(globalStockData.filter(item => item.brand === brand).map(item => item.model))];
+            
+            const gadgets = globalStockData.filter(item => {
+                const type = item.typeColH || '';
+                return (type.includes('TWS') || type.includes('WATCH')) && item.brand.toLowerCase() === brand.toLowerCase();
+            });
+            
+            availableGadgets = gadgets.map(g => ({ name: `${g.brand} ${g.model}`, price: g.retailPrice }));
+            let seen = new Set();
+            availableGadgets = availableGadgets.filter(g => !seen.has(g.name) && seen.add(g.name));
+
+            renderModelMenu('');
+            renderGadgetMenu('');
+            calculateAll();
+        }
+
+        function renderModelMenu(filterText) {
+            modelMenu.innerHTML = '';
+            const filtered = availableModels.filter(m => fuzzyMatch(filterText, m));
+            if(filtered.length === 0) {
+                modelMenu.innerHTML = '<div style="padding:12px; color:var(--text-gray); text-align:center;">ไม่พบข้อมูลรุ่น</div>';
+                return;
+            }
+            filtered.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'dropdown-item';
+                div.textContent = m;
+                div.addEventListener('click', () => {
+                    modelSearch.value = m;
+                    modelMenu.style.display = 'none';
+                    filterStorages();
+                });
+                modelMenu.appendChild(div);
+            });
+        }
+
+        function renderGadgetMenu(filterText) {
+            gadgetMenu.innerHTML = '';
+            const filtered = availableGadgets.filter(g => fuzzyMatch(filterText, g.name));
+            if(filtered.length === 0) {
+                gadgetMenu.innerHTML = '<div style="padding:12px; color:var(--text-gray); text-align:center;">ไม่มีอุปกรณ์ที่รองรับ</div>';
+                return;
+            }
+            filtered.forEach(g => {
+                const div = document.createElement('div');
+                div.className = 'dropdown-item';
+                div.textContent = `${g.name} (${g.price.toLocaleString()} บ.)`;
+                div.addEventListener('click', () => {
+                    gadgetInput.value = g.name;
+                    currentGadgetPrice = g.price;
+                    gadgetMenu.style.display = 'none';
+                    calculateAll();
+                });
+                gadgetMenu.appendChild(div);
+            });
+        }
+
+        function filterStorages() {
+            const model = modelSearch.value;
+            const storageSelect = document.getElementById('storage');
+            storageSelect.innerHTML = '<option value="">เลือกความจุ...</option>';
+            document.getElementById('price').value = '0';
+            currentMachinePrice = 0;
+            
+            const storages = globalStockData.filter(item => item.model === model).map(item => item.storage);
+            const uniqueStorages = [...new Set(storages)];
+            
+            uniqueStorages.forEach(s => {
+                if(s) {
+                    let opt = document.createElement('option');
+                    opt.value = s; opt.textContent = s;
+                    storageSelect.appendChild(opt);
+                }
+            });
+            calculateAll();
+        }
+
+        function updatePrice() {
+            const model = modelSearch.value;
+            const storage = document.getElementById('storage').value;
+            const match = globalStockData.find(item => item.model === model && item.storage === storage);
+            currentMachinePrice = match ? match.retailPrice : 0;
+            calculateAll();
+        }
+
+        function formatDP(el) {
+            let val = el.value.replace(/[^\d]/g, '');
+            if (val) { el.value = parseInt(val, 10).toLocaleString(); } 
+            else { el.value = ''; }
+            calculateAll();
+        }
+
+        const pillBtns = document.querySelectorAll('.pill-btn');
+        pillBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                pillBtns.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentDownPercent = parseFloat(e.target.getAttribute('data-val'));
+                calculateAll();
+            });
+        });
+
+        function filterPackages() {
+            const discount = parseFloat(document.getElementById('discount').value) || 0;
+            const pkgSelect = document.getElementById('package');
+            pkgSelect.innerHTML = '<option value="">เลือกแพ็กเกจที่ต้องการ...</option>';
+
+            currentVat = globalVatMap[discount] || 0;
+
+            if(discount === 0) { updatePackageDetails(); calculateAll(); return; }
+
+            let filtered = globalPackageData.filter(p => {
+                let price = p.price;     
+                let isPortIn = p.isPortIn; 
+
+                if (discount === 1500) {
+                    return (price === 499 || price === 599) && !isPortIn;
+                }
+                if (discount === 2000) {
+                    return (price >= 699 && !isPortIn) || (price === 1099 && isPortIn);
+                }
+                if (discount === 2500) {
+                    return (price >= 899 && !isPortIn) || (price === 1299 && isPortIn);
+                }
+                if (discount === 3500) {
+                    return price >= 1199 && !isPortIn;
+                }
+                return false;
+            });
+
+            filtered.sort((a, b) => a.price - b.price);
+
+            filtered.forEach(p => {
+                let opt = document.createElement('option'); 
+                opt.value = p.packageName; 
+                opt.textContent = p.packageName; 
+                pkgSelect.appendChild(opt);
+            });
+
+            updatePackageDetails();
+        }
+
+        function updatePackageDetails() {
+            const pkgName = document.getElementById('package').value;
+            const match = globalPackageData.find(p => p.packageName === pkgName);
+            
+            if(match) {
+                document.getElementById('pkgDiscount').value = match.pkgDiscount || '';
+                document.getElementById('net5g').value = match.net5g || '';
+                document.getElementById('netCont').value = match.netCont || '';
+                document.getElementById('call').value = match.callMinutes || '';
+                document.getElementById('pkgCondition').value = match.condition || '';
+            } else {
+                ['pkgDiscount', 'net5g', 'netCont', 'call', 'pkgCondition'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+            }
+            calculateAll();
+        }
+
+        function calculateAll() {
+            let gadgetVal = gadgetInput.value.trim();
+            const matchGadget = availableGadgets.find(g => g.name === gadgetVal);
+            
+            if (matchGadget) {
+                currentGadgetPrice = matchGadget.price;
+            } else {
+                currentGadgetPrice = 0; 
+            }
+
+            const totalDevicePrice = currentMachinePrice + currentGadgetPrice;
+            document.getElementById('price').value = totalDevicePrice > 0 ? totalDevicePrice.toLocaleString() : '0';
+
+            const downAmount = Math.ceil(totalDevicePrice * currentDownPercent);
+            document.getElementById('downAmount').value = downAmount.toLocaleString();
+
+            const deviceDiscount = parseFloat(document.getElementById('discount').value) || 0;
+            const dpAmount = parseFloat(document.getElementById('dpAmount').value.replace(/,/g, '')) || 0;
+
+            if (deviceDiscount === 0) {
+                document.getElementById('totalPayment').innerText = "0.00";
+                document.getElementById('gadgetAlert').style.display = 'none';
+                return;
+            }
+
+            const fee = 300;
+            let fixedComponent = currentVat + fee; 
+            
+            let netDown = (downAmount - dpAmount) - deviceDiscount;
+            
+            let finalTotal = 0;
+            let excess = 0;
+
+            if (netDown < 0) {
+                finalTotal = fixedComponent; 
+                excess = Math.abs(netDown); 
+            } else {
+                finalTotal = netDown + fixedComponent; 
+                excess = 0;
+            }
+
+            document.getElementById('totalPayment').innerText = finalTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+            const gadgetAlertEl = document.getElementById('gadgetAlert');
+            const excessAmountEl = document.getElementById('excessAmount');
+            if (netDown < 0) {
+                excessAmountEl.innerText = excess.toLocaleString(undefined, {maximumFractionDigits: 2});
+                gadgetAlertEl.style.display = 'block';
+            } else {
+                gadgetAlertEl.style.display = 'none';
+            }
+        }
+
+        function resetAll() {
+            document.getElementById('brand').selectedIndex = 0;
+            modelSearch.value = '';
+            modelMenu.innerHTML = '';
+            document.getElementById('storage').innerHTML = '<option value="">เลือกความจุ...</option>';
+            gadgetInput.value = '';
+            gadgetMenu.innerHTML = '';
+            document.getElementById('price').value = '0';
+            document.getElementById('dpAmount').value = ''; 
+            
+            pillBtns.forEach(b => b.classList.remove('active'));
+            pillBtns[0].classList.add('active');
+            currentDownPercent = 0;
+            
+            document.getElementById('downAmount').value = '0';
+            document.getElementById('discount').innerHTML = '<option value="0">เลือกสิทธิ์ส่วนลด...</option>';
+            initDiscounts(); 
+            
+            document.getElementById('package').innerHTML = '<option value="">กรุณาระบุส่วนลดค่าเครื่องก่อน...</option>';
+            ['pkgDiscount', 'net5g', 'netCont', 'call', 'pkgCondition'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            
+            document.getElementById('totalPayment').innerText = '0.00';
+            document.getElementById('gadgetAlert').style.display = 'none';
+            
+            currentMachinePrice = 0;
+            currentGadgetPrice = 0;
+            currentVat = 0;
+            availableModels = [];
+            availableGadgets = [];
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' }); 
+        }
+    </script>
 </body>
 </html>
