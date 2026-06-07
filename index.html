@@ -64,7 +64,6 @@
         .finance-text { color: #005bc5; } 
 
         .form-row { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; width: 100%; }
-        /* แก้ไขเพิ่ม z-index ให้ Dropdown ไม่โดนบัง */
         .form-col { flex: 1; display: flex; flex-direction: column; min-width: 140px; position: relative; z-index: 1; }
         .form-col:focus-within { z-index: 10; }
 
@@ -268,6 +267,11 @@
     </div>
 
     <script>
+        // ==========================================
+        // นำ URL ที่คัดลอกมาจาก Apps Script มาวางไว้ในเครื่องหมายคำพูดด้านล่างนี้เลยครับ
+        const API_URL = "ใส่_URL_ของเว็บแอป_APPS_SCRIPT_ที่นี่";
+        // ==========================================
+
         let globalStockData = [];
         let globalPackageData = [];
         let globalVatMap = {}; 
@@ -276,7 +280,6 @@
         let currentMachinePrice = 0; 
         let currentGadgetPrice = 0;  
         let currentVat = 0;
-        let loadCount = 0;
 
         let availableModels = [];
         let availableGadgets = []; 
@@ -286,30 +289,41 @@
         const gadgetInput = document.getElementById('gadgetInput');
         const gadgetMenu = document.getElementById('gadgetMenu');
 
-        window.addEventListener('DOMContentLoaded', () => {
-            google.script.run
-                .withFailureHandler(showError)
-                .withSuccessHandler(data => {
-                    if(data.error) { showError(data.error); return; }
-                    globalStockData = data;
-                    initBrands();
-                    checkLoad();
-                }).getStockData();
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (API_URL === "https://script.google.com/macros/s/AKfycbyD4nYzsmGTxxD3Hly0nNX0WP7nUIohfIx3VqLSvj6yuC92qHGHj0OYyj5bRddt_tB8rQ/exec" || API_URL === "") {
+                showError("https://script.google.com/macros/s/AKfycbyD4nYzsmGTxxD3Hly0nNX0WP7nUIohfIx3VqLSvj6yuC92qHGHj0OYyj5bRddt_tB8rQ/exec");
+                return;
+            }
 
-            google.script.run
-                .withFailureHandler(showError)
-                .withSuccessHandler(data => {
-                    if(data.error) { showError(data.error); return; }
-                    globalPackageData = data.packages;
-                    globalVatMap = data.vatMap; 
-                    initDiscounts(); 
-                    checkLoad();
-                }).getPackageData();
+            try {
+                // ดึงข้อมูลทั้งหมดผ่าน API ในครั้งเดียว (Fetch Data)
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('ไม่สามารถเชื่อมต่อฐานข้อมูลได้');
+                
+                const data = await response.json();
+                
+                if(data.error) { 
+                    showError(data.error); 
+                    return; 
+                }
 
+                globalStockData = data.stock || [];
+                globalPackageData = data.packages || [];
+                globalVatMap = data.vatMap || {}; 
+
+                initBrands();
+                initDiscounts();
+                document.getElementById('loading').style.display = 'none';
+
+            } catch (error) {
+                showError("เกิดข้อผิดพลาดในการโหลดข้อมูล: " + error.message);
+                console.error(error);
+            }
+
+            // ตั้งค่า Event Listeners สำหรับ UI
             modelSearch.addEventListener('focus', () => { modelMenu.style.display = 'block'; renderModelMenu(modelSearch.value); });
             modelSearch.addEventListener('input', (e) => renderModelMenu(e.target.value));
             
-            // ดักจับกรณีพิมพ์ค้นหาแล้วไม่กดเลือก ให้รีเซ็ตค่ากลับถ้าไม่เจอข้อมูลในระบบ
             modelSearch.addEventListener('blur', () => {
                 setTimeout(() => {
                     const match = availableModels.find(m => m === modelSearch.value.trim());
@@ -323,7 +337,6 @@
             gadgetInput.addEventListener('focus', () => { gadgetMenu.style.display = 'block'; renderGadgetMenu(gadgetInput.value); });
             gadgetInput.addEventListener('input', (e) => renderGadgetMenu(e.target.value));
 
-            // ดักจับกรณีพิมพ์ Gadget ค้นหาแล้วไม่กดเลือก ให้รีเซ็ตค่ากลับถ้าไม่เจอข้อมูลในระบบ
             gadgetInput.addEventListener('blur', () => {
                 setTimeout(() => {
                     const match = availableGadgets.find(g => g.name === gadgetInput.value.trim());
@@ -345,11 +358,6 @@
             document.getElementById('loadingText').style.color = "var(--danger-color)";
         }
 
-        function checkLoad() {
-            loadCount++;
-            if(loadCount === 2) document.getElementById('loading').style.display = 'none';
-        }
-
         function fuzzyMatch(pattern, text) {
             if (!pattern) return true;
             const searchLower = pattern.toLowerCase().replace(/\s+/g, '');
@@ -364,8 +372,10 @@
 
         function initBrands() {
             const brandSelect = document.getElementById('brand');
+            brandSelect.innerHTML = '<option value="">เลือกแบรนด์ที่ต้องการ...</option>';
             const brands = [...new Set(globalStockData.map(item => item.brand))]
                 .filter(b => {
+                    if(!b) return false;
                     const n = b.trim().toLowerCase();
                     return n !== 'samsung' && n !== 'iphone' && n !== 'apple';
                 });
@@ -546,11 +556,11 @@
             const match = globalPackageData.find(p => p.packageName === pkgName);
             
             if(match) {
-                document.getElementById('pkgDiscount').value = match.pkgDiscount;
-                document.getElementById('net5g').value = match.net5g;
-                document.getElementById('netCont').value = match.netCont;
-                document.getElementById('call').value = match.callMinutes;
-                document.getElementById('pkgCondition').value = match.condition;
+                document.getElementById('pkgDiscount').value = match.pkgDiscount || '';
+                document.getElementById('net5g').value = match.net5g || '';
+                document.getElementById('netCont').value = match.netCont || '';
+                document.getElementById('call').value = match.callMinutes || '';
+                document.getElementById('pkgCondition').value = match.condition || '';
             } else {
                 ['pkgDiscount', 'net5g', 'netCont', 'call', 'pkgCondition'].forEach(id => {
                     document.getElementById(id).value = '';
@@ -566,7 +576,7 @@
             if (matchGadget) {
                 currentGadgetPrice = matchGadget.price;
             } else {
-                currentGadgetPrice = 0; // แก้บั๊กที่ระบบเคยพยายามดึงตัวเลขจากชื่อรุ่นมาคำนวณ
+                currentGadgetPrice = 0; 
             }
 
             const totalDevicePrice = currentMachinePrice + currentGadgetPrice;
