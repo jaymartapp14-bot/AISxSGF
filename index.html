@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* ปรับพื้นหลังพาสเทลให้อ่อนลง สบายตา ไม่เยอะเกินไป */
             --bg-pastel: #fafbfe;
             --glass-bg: rgba(255, 255, 255, 0.85);
             --glass-border: rgba(255, 255, 255, 0.6);
@@ -30,7 +29,6 @@
         body {
             font-family: 'Prompt', sans-serif;
             background-color: var(--bg-pastel);
-            /* แสงเงาพาสเทลแบบจางๆ ไม่รบกวนสายตา */
             background-image: radial-gradient(at 0% 0%, rgba(200,220,255,0.15) 0px, transparent 50%),
                               radial-gradient(at 100% 100%, rgba(255,210,230,0.15) 0px, transparent 50%);
             background-attachment: fixed;
@@ -60,14 +58,15 @@
             box-shadow: var(--shadow-glass);
         }
 
-        /* ปรับแต่งสีหัวข้อตามสั่ง */
         h2 { text-align: center; font-weight: 600; margin-top: 0; margin-bottom: 24px; font-size: 1.35rem; letter-spacing: -0.3px; }
-        .ais-text { color: #00b14f; } /* สีเขียว AIS */
-        .sg-text { color: #ed1c24; } /* สีแดง SG */
-        .finance-text { color: #005bc5; } /* สีน้ำเงิน FINANCE+ */
+        .ais-text { color: #00b14f; } 
+        .sg-text { color: #ed1c24; } 
+        .finance-text { color: #005bc5; } 
 
         .form-row { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; width: 100%; }
-        .form-col { flex: 1; display: flex; flex-direction: column; min-width: 140px; position: relative; }
+        /* แก้ไขเพิ่ม z-index ให้ Dropdown ไม่โดนบัง */
+        .form-col { flex: 1; display: flex; flex-direction: column; min-width: 140px; position: relative; z-index: 1; }
+        .form-col:focus-within { z-index: 10; }
 
         label { font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; color: var(--text-gray); }
 
@@ -127,7 +126,7 @@
 
         .loading-overlay {
             position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-pastel);
-            display: flex; justify-content: center; align-items: center; z-index: 999; font-size: 0.95rem; color: var(--text-gray);
+            display: flex; justify-content: center; align-items: center; z-index: 9999; font-size: 0.95rem; color: var(--text-gray);
         }
 
         @media (max-width: 480px) {
@@ -309,9 +308,31 @@
 
             modelSearch.addEventListener('focus', () => { modelMenu.style.display = 'block'; renderModelMenu(modelSearch.value); });
             modelSearch.addEventListener('input', (e) => renderModelMenu(e.target.value));
+            
+            // ดักจับกรณีพิมพ์ค้นหาแล้วไม่กดเลือก ให้รีเซ็ตค่ากลับถ้าไม่เจอข้อมูลในระบบ
+            modelSearch.addEventListener('blur', () => {
+                setTimeout(() => {
+                    const match = availableModels.find(m => m === modelSearch.value.trim());
+                    if(!match && modelSearch.value.trim() !== '') {
+                        modelSearch.value = '';
+                        filterStorages(); 
+                    }
+                }, 200);
+            });
 
             gadgetInput.addEventListener('focus', () => { gadgetMenu.style.display = 'block'; renderGadgetMenu(gadgetInput.value); });
             gadgetInput.addEventListener('input', (e) => renderGadgetMenu(e.target.value));
+
+            // ดักจับกรณีพิมพ์ Gadget ค้นหาแล้วไม่กดเลือก ให้รีเซ็ตค่ากลับถ้าไม่เจอข้อมูลในระบบ
+            gadgetInput.addEventListener('blur', () => {
+                setTimeout(() => {
+                    const match = availableGadgets.find(g => g.name === gadgetInput.value.trim());
+                    if(!match && gadgetInput.value.trim() !== '') {
+                        gadgetInput.value = '';
+                        calculateAll();
+                    }
+                }, 200);
+            });
 
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('#modelSearch') && !e.target.closest('#modelMenu')) modelMenu.style.display = 'none';
@@ -341,7 +362,6 @@
             return false;
         }
 
-        // อัปเดต: คัดแบรนด์ Samsung, iPhone, และ Apple ออกทั้งหมดตามสั่ง
         function initBrands() {
             const brandSelect = document.getElementById('brand');
             const brands = [...new Set(globalStockData.map(item => item.brand))]
@@ -481,7 +501,6 @@
             });
         });
 
-        // ฟังก์ชันนี้ไม่ได้ดัดแปลงการทำงานใดๆ (รักษา Logic เดิมที่ตรวจเช็คจาก E และ F ตามที่คุณสั่งไว้)
         function filterPackages() {
             const discount = parseFloat(document.getElementById('discount').value) || 0;
             const pkgSelect = document.getElementById('package');
@@ -547,9 +566,7 @@
             if (matchGadget) {
                 currentGadgetPrice = matchGadget.price;
             } else {
-                let cleanVal = gadgetVal.replace(/,/g, '');
-                let numMatch = cleanVal.match(/\d+/g);
-                currentGadgetPrice = numMatch ? parseFloat(numMatch[numMatch.length - 1]) || 0 : 0;
+                currentGadgetPrice = 0; // แก้บั๊กที่ระบบเคยพยายามดึงตัวเลขจากชื่อรุ่นมาคำนวณ
             }
 
             const totalDevicePrice = currentMachinePrice + currentGadgetPrice;
